@@ -25,10 +25,13 @@ namespace SkipTheBadEngine
                 coroutines.Add(key, new RoutinePack(method, executing));
         }
 
-        public bool CallIfNotExecuting(string key)
+      public bool CallIfNotExecuting(string key)
         {
             if (!coroutines[key].IsExecuting)
+            {
                 coroutines[key].Start();
+                return true;
+            }
             return false;
         }
 
