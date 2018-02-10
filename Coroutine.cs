@@ -1,83 +1,98 @@
-﻿using Godot;
+using Godot;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 
 namespace SkipTheBadEngine
 {
-    public interface RoutineFlux { }
-    public class Continue : RoutineFlux { }
-    public class End : RoutineFlux { }
-
-    public class Coroutine : Node // needs refactoring and implementation of wait for seconds
+    public class Coroutine : Node
     {
         public static readonly End End = new End();
-        public static readonly Continue Continue = new Continue();
 
-        Dictionary<string, BoolMethod> coroutines = new Dictionary<string, BoolMethod>();
-        List<BoolMethod> executing = new List<BoolMethod>();
+        private Dictionary<string, RoutinePack> coroutines;
+        private List<RoutinePack> executing;
 
         public Coroutine(Node parent)
         {
+            coroutines = new Dictionary<string, RoutinePack>();
+            executing = new List<RoutinePack>();
             parent.AddChild(this);
         }
 
         public void Register(string key, Func<IEnumerator> method)
         {
-            coroutines.Add(key, new BoolMethod(false, method));
+            if (!coroutines.ContainsKey(key))
+                coroutines.Add(key, new RoutinePack(method));
         }
 
         public bool CallIfNotExecuting(string key)
         {
-            if (!coroutines[key].isExecuting)
+            if (!coroutines[key].IsExecuting)
                 coroutines[key].Start(executing);
             return false;
         }
 
         public override void _Process(float delta)
         {
-            foreach (BoolMethod bm in executing)
+            for (int i = 0; i < executing.Count; i++)
             {
-                if (!bm.isExecuting)
-                    bm.Start(executing);
-                else if (bm.enumerator.MoveNext())
+                var current = executing[i];
+                if (!current.IsExecuting)
+                    current.Start(executing);
+                else if (current.Enumerator.Current is Continue cast)
                 {
-                    if (bm.enumerator.Current is End)
-                        bm.End();
+                    if (cast.CanContinue(delta))
+                        if (!current.Enumerator.MoveNext())
+                            current.End(executing);
                 }
+                else if (current.Enumerator.Current is End)
+                    current.End(executing);
             }
-
-            executing.RemoveAll(e => e.enumerator == null);
         }
 
-        int count = 0;
+        public static Continue Continue() => new Continue();
+        public static Continue Continue(float seconds) => new Continue(seconds);
     }
 
-    internal class BoolMethod
+    internal struct RoutinePack
     {
-        public IEnumerator enumerator;
+        public IEnumerator Enumerator { get; private set; }
+        public bool IsExecuting { get { return Enumerator != null; } }
+        private Func<IEnumerator> method;
 
-        public bool isExecuting;
-        public Func<IEnumerator> method;
-
-        public BoolMethod(bool b, Func<IEnumerator> m)
+        public RoutinePack(Func<IEnumerator> m)
         {
-            isExecuting = b;
+            Enumerator = null;
             method = m;
-            enumerator = null;
         }
 
-        public void Start(List<BoolMethod> executing)
+        public void Start(List<RoutinePack> executing)
         {
-            enumerator = method.Invoke();
-            isExecuting = true;
+            Enumerator = method.Invoke();
+            Enumerator.MoveNext();
             executing.Add(this);
         }
 
-        public void End()
+        public void End(List<RoutinePack> executing)
         {
-            enumerator = null;
-            isExecuting = false;
+            executing.Remove(this);
+            Enumerator = null;
         }
     }
+
+    public class Continue
+    {
+        private float timeout = 0;
+        public float Seconds { get; private set; }
+        public Continue() { Seconds = 0; }
+        public Continue(float seconds) => Seconds = seconds;
+
+        public bool CanContinue(float delta)
+        {
+            timeout += delta;
+            return timeout >= Seconds;
+        }
+    }
+
+    public class End { }
 }
