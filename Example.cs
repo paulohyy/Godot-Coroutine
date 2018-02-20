@@ -25,6 +25,6 @@
         {
             var someCondition = true;
             if (someCondition)
-                handler.CallIfNotExecuting(ExampleCoroutine);
+                handler.StartIfNotExecuting(ExampleCoroutine);
         }
     }
