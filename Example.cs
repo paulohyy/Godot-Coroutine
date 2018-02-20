@@ -1,11 +1,10 @@
     public class Example : Node
     {
-        Coroutine coroutine;
+        CoroutineHandler handler;
 
         public Example()
         {
-            coroutine = new Coroutine(this);
-            coroutine.Register("example", ExampleCoroutine);
+            handler = new CoroutineHandler(this);
         }
 
         public IEnumerator ExampleCoroutine()
@@ -15,10 +14,10 @@
             for (int i = 0; i < 10; i++)
             {
                 // code to do something once every 1 second
-                yield return Coroutine.Continue(1);
+                yield return CoroutineHandler.Wait(1.5f);
 
                 if (stopCondition)
-                    yield return Coroutine.End;
+                    yield return CoroutineHandler.End();
             }
         }
 
@@ -26,6 +25,6 @@
         {
             var someCondition = true;
             if (someCondition)
-                coroutine.CallIfNotExecuting("example");
+                handler.CallIfNotExecuting(ExampleCoroutine);
         }
     }
