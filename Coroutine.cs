@@ -11,36 +11,41 @@ namespace SkipTheBadEngine
 
         private Dictionary<string, RoutinePack> coroutines;
         private List<RoutinePack> executing;
-        private List<RoutinePack> executingPhysics;
 
         public CoroutineHandler(Node parent)
         {
             coroutines = new Dictionary<string, RoutinePack>();
             executing = new List<RoutinePack>();
-            executingPhysics = new List<RoutinePack>();
             parent.AddChild(this);
         }
 
         private void Register(Func<IEnumerator> method)
         {
             if (!coroutines.ContainsKey(method.Method.Name))
-                coroutines.Add(method.Method.Name, new RoutinePack(method, executing, executingPhysics));
+                coroutines.Add(method.Method.Name, new RoutinePack(method, executing));
         }
 
-        public bool StartIfNotExecuting(Func<IEnumerator> method, bool physics = false)
+        public bool StartIfNotExecuting(Func<IEnumerator> method)
         {
-            SetProcess(true);
-
             if (!coroutines.ContainsKey(method.Method.Name))
                 Register(method);
 
             if (!coroutines[method.Method.Name].IsExecuting)
             {
                 coroutines[method.Method.Name].IsExecuting = true;
-                coroutines[method.Method.Name].Start(physics);
+                coroutines[method.Method.Name].Start();
                 return true;
             }
             return false;
+        }
+
+        public void Stop(Func<IEnumerator> method)
+        {
+            if (!coroutines.ContainsKey(method.Method.Name))
+                return;
+
+            if (coroutines[method.Method.Name].IsExecuting)
+                coroutines[method.Method.Name].End();
         }
 
         public override void _Process(float delta)
@@ -48,30 +53,6 @@ namespace SkipTheBadEngine
             for (int i = 0; i < executing.Count; i++)
             {
                 var current = executing[i];
-                if (current.Enumerator.Current is Continue cont)
-                {
-                    if (cont.CanContinue(delta))
-                        if (!current.Enumerator.MoveNext())
-                        {
-                            current.End();
-                            if(executing.Count == 0)
-                                SetProcess(false);
-                        }
-                }
-                else if (current.Enumerator.Current is End)
-                {
-                    current.End();
-                    if (executing.Count == 0)
-                        SetProcess(false);
-                }
-            }
-        }
-
-        public override void _PhysicsProcess(float delta)
-        {
-            for (int i = 0; i < executingPhysics.Count; i++)
-            {
-                var current = executingPhysics[i];
                 if (current.Enumerator.Current is Continue cont)
                 {
                     if (cont.CanContinue(delta))
@@ -111,35 +92,27 @@ namespace SkipTheBadEngine
     {
         private Func<IEnumerator> method;
         private List<RoutinePack> executing;
-        private List<RoutinePack> executingPhysics;
 
         public IEnumerator Enumerator { get; private set; }
         public bool IsExecuting { get; set; } = new bool();
 
-        public RoutinePack(Func<IEnumerator> m, List<RoutinePack> executing, List<RoutinePack> executingPhysics)
+        public RoutinePack(Func<IEnumerator> m, List<RoutinePack> executing)
         {
             this.executing = executing;
-            this.executingPhysics = executingPhysics;
             Enumerator = null;
             method = m;
         }
 
-        public void Start(bool physics = false)
+        public void Start()
         {
             Enumerator = method.Invoke();
             Enumerator.MoveNext();
-            if (!physics)
-                executing.Add(this);
-            else
-                executingPhysics.Add(this);
+            executing.Add(this);
         }
 
-        public void End(bool physics = false)
+        public void End()
         {
-            if (!physics)
-                executing.Remove(this);
-            else
-                executingPhysics.Remove(this);
+            executing.Remove(this);
             Enumerator = null;
             IsExecuting = false;
         }
@@ -148,7 +121,6 @@ namespace SkipTheBadEngine
         {
             End();
             executing = null;
-            executingPhysics = null;
             method = null;
             Enumerator = null;
         }
