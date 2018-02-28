@@ -63,15 +63,19 @@ namespace SkipTheBadEngine
                     current.End();
             }
         }
-
-        public void Destroy()
+        protected override void Dispose(bool disposing)
         {
             this.GetParent().RemoveChild(this);
-            coroutines.Clear();
-            coroutines = null;
-            foreach (var item in executing) item.Destroy();
+
             executing.Clear();
             executing = null;
+
+            foreach (var coroutine in coroutines.Values)
+                coroutine.Dispose();
+            coroutines.Clear();
+            coroutines = null;
+
+            base.Dispose(disposing);
         }
 
         /// <summary>
@@ -88,7 +92,7 @@ namespace SkipTheBadEngine
         public static End End() => end;
     }
 
-    internal class RoutinePack
+    internal class RoutinePack : IDisposable
     {
         private Func<IEnumerator> method;
         private List<RoutinePack> executing;
@@ -117,7 +121,7 @@ namespace SkipTheBadEngine
             IsExecuting = false;
         }
 
-        public void Destroy()
+        public void Dispose()
         {
             End();
             executing = null;
