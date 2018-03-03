@@ -5,6 +5,12 @@
         public Example()
         {
             handler = new CoroutineHandler(this);
+            // calling in the same thread
+            handler.Start(ExampleCoroutine);
+            // calling in another thread
+            handler.StartThread(ExampleCoroutine);
+            // calling in a task
+            handler.StartThread(ExampleCoroutine);
         }
 
         public IEnumerator ExampleCoroutine()
